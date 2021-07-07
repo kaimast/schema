@@ -203,7 +203,7 @@ impl FromPyObject<'_> for ValueType {
         let typename: &str = if let Ok(pytype) = PyAny::downcast::<PyType>(obj) {
             pytype.name().expect("Failed to get typename")
         } else if let Ok(string) = PyAny::downcast::<PyString>(obj) {
-            &string.to_str().unwrap()
+            string.to_str().unwrap()
         } else {
             return Err( PyErr::new::<pyexceptions::PyTypeError, _>("Failed to convert PyObject to ValueType. Need string or python type."));
         };
