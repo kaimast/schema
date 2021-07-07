@@ -200,18 +200,26 @@ impl Value {
 #[ cfg(feature="python-bindings") ]
 impl FromPyObject<'_> for ValueType {
     fn extract(obj: &PyAny) -> PyResult<Self> {
-        let pytype = PyAny::downcast::<PyType>(obj)?;
+        let typename: &str = if let Ok(pytype) = PyAny::downcast::<PyType>(obj) {
+            pytype.name().expect("Failed to get typename")
+        } else if let Ok(string) = PyAny::downcast::<PyString>(obj) {
+            &string.to_str().unwrap()
+        } else {
+            return Err( PyErr::new::<pyexceptions::PyTypeError, _>("Failed to convert PyObject to ValueType. Need string or python type."));
+        };
 
-        // TODO: is there a more idiomatic way to do this?
-        let vtype = if pytype.name().unwrap() == "int" {
+        let vtype = if typename == "int" || typename == "i64" {
             ValueType::I64
-        } else if pytype.name().unwrap() == "str" {
+        } else if typename == "u64" {
+            ValueType::U64
+        } else if typename == "str" {
             ValueType::String
-        } else if pytype.name().unwrap() == "bool" {
+        } else if typename == "bool" {
             ValueType::Bool
         } else {
-            panic!("Cannot convert PyType to ValueType");
+            return Err( PyErr::new::<pyexceptions::PyTypeError, _>(format!("Cannot convert to ValueType. Got '{}'.", typename)) );
         };
+
 
         Ok(vtype)
     }
@@ -222,25 +230,19 @@ impl FromPyObject<'_> for Value {
     fn extract(obj: &PyAny) -> PyResult<Self> {
         if let Ok(string) = PyAny::downcast::<PyString>(obj) {
             let rs_str: String = string.extract()?;
-            return Ok( rs_str.into() );
-        }
-
-        if let Ok(pyfloat) = PyAny::downcast::<PyFloat>(obj) {
+            Ok( rs_str.into() )
+        } else if let Ok(pyfloat) = PyAny::downcast::<PyFloat>(obj) {
             let f: f64 = pyfloat.extract()?;
-            return Ok( f.into() );
-        }
-
-        if let Ok(pyint) = PyAny::downcast::<PyLong>(obj) {
+            Ok( f.into() )
+        } else if let Ok(pyint) = PyAny::downcast::<PyLong>(obj) {
             let i: i64 = pyint.extract()?;
-            return Ok( i.into() );
-        }
-
-        if let Ok(pyint) = PyAny::downcast::<PyInt>(obj) {
+            Ok( i.into() )
+        } else if let Ok(pyint) = PyAny::downcast::<PyInt>(obj) {
             let i: i64 = pyint.extract()?;
-            return Ok( i.into() );
+            Ok( i.into() )
+        } else {
+            Err( PyErr::new::<pyexceptions::PyTypeError, _>("Failed to convert PyObject to Value") )
         }
-
-        Err( PyErr::new::<pyexceptions::PyTypeError, _>("Failed to convert PyObject to Value") )
     }
 }
 
@@ -322,40 +324,28 @@ pub fn python_to_json_value(obj: &PyAny) -> PyResult<Value> {
 #[ cfg(all(feature="json", feature="python-bindings")) ]
 pub fn python_to_json(obj: &PyAny) -> PyResult<serde_json::Value> {
     if obj.is_none() {
-        return Ok(serde_json::Value::Null);
-    }
-
-    if let Ok(string) = PyAny::downcast::<PyString>(obj) {
+        Ok(serde_json::Value::Null)
+    } else if let Ok(string) = PyAny::downcast::<PyString>(obj) {
         let rs_str: String = string.extract()?;
-        return Ok(rs_str.into());
-    }
-
-    if let Ok(pyfloat) = PyAny::downcast::<PyFloat>(obj) {
+        Ok(rs_str.into())
+    } else  if let Ok(pyfloat) = PyAny::downcast::<PyFloat>(obj) {
         let f: f64 = pyfloat.extract()?;
-        return Ok(f.into());
-    }
-
-    if let Ok(pyint) = PyAny::downcast::<PyLong>(obj) {
+        Ok(f.into())
+    } else if let Ok(pyint) = PyAny::downcast::<PyLong>(obj) {
         let i: i64 = pyint.extract()?;
-        return Ok( i.into() );
-    }
-
-    if let Ok(pyint) = PyAny::downcast::<PyInt>(obj) {
+        Ok( i.into() )
+    } else if let Ok(pyint) = PyAny::downcast::<PyInt>(obj) {
         let i: i64 = pyint.extract()?;
-        return Ok( i.into() );
-    }
-
-    if let Ok(pyarr) = PyAny::downcast::<PyList>(obj) {
+        Ok( i.into() )
+    } else if let Ok(pyarr) = PyAny::downcast::<PyList>(obj) {
         let mut result = Vec::new();
 
         for elem in pyarr.iter() {
             result.push(python_to_json(elem)?);
         }
 
-        return Ok( result.into() );
-    }
-
-    if let Ok(pydict) = PyAny::downcast::<PyDict>(obj) {
+        Ok( result.into() )
+    } else if let Ok(pydict) = PyAny::downcast::<PyDict>(obj) {
         let mut result = serde_json::Map::new();
 
         for (name, elem) in pydict.iter() {
@@ -363,10 +353,10 @@ pub fn python_to_json(obj: &PyAny) -> PyResult<serde_json::Value> {
             result.insert(key, python_to_json(elem)?);
         }
 
-        return Ok( result.into() );
+        Ok( result.into() )
+    } else {
+        Err( PyErr::new::<pyexceptions::PyTypeError, _>("Failed to convert PyObject to JSON Value") )
     }
-
-    Err( PyErr::new::<pyexceptions::PyTypeError, _>("Failed to convert PyObject to JSON Value") )
 }
 
 #[ cfg(test) ]
@@ -385,5 +375,4 @@ mod tests {
 
         assert_eq!(val, val2);
     }
-
 }
