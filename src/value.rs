@@ -87,6 +87,16 @@ impl From<String> for Value {
     fn from(s: String) -> Self { Self::String(s) }
 }
 
+#[ cfg(feature="json") ]
+impl From<serde_json::Value> for Value {
+    fn from(json: serde_json::Value) -> Self { Self::Json(Box::new(json)) }
+}
+
+#[ cfg(feature="json") ]
+impl From<Box<serde_json::Value>> for Value {
+    fn from(json: Box<serde_json::Value>) -> Self { Self::Json(json) }
+}
+
 impl TryInto<i64> for Value {
     type Error = ();
 
@@ -208,20 +218,22 @@ impl FromPyObject<'_> for ValueType {
             return Err( PyErr::new::<pyexceptions::PyTypeError, _>("Failed to convert PyObject to ValueType. Need string or python type."));
         };
 
-        let vtype = if typename == "int" || typename == "i64" {
-            ValueType::I64
+        #[ cfg(feature="json") ]
+        if typename == "json" {
+            return Ok(ValueType::Json);
+        }
+
+        if typename == "int" || typename == "i64" {
+            Ok(ValueType::I64)
         } else if typename == "u64" {
-            ValueType::U64
+            Ok(ValueType::U64)
         } else if typename == "str" {
-            ValueType::String
+            Ok(ValueType::String)
         } else if typename == "bool" {
-            ValueType::Bool
+            Ok(ValueType::Bool)
         } else {
-            return Err( PyErr::new::<pyexceptions::PyTypeError, _>(format!("Cannot convert to ValueType. Got '{}'.", typename)) );
-        };
-
-
-        Ok(vtype)
+            Err( PyErr::new::<pyexceptions::PyTypeError, _>(format!("Cannot convert to ValueType. Got '{}'.", typename)) )
+        }
     }
 }
 
