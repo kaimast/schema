@@ -42,16 +42,16 @@ impl DataEntry {
     }
 }
 
-type SchemaInner = Vec<(String, ValueType)>;
+type FieldTypeList = Vec<(String, ValueType)>;
 
 #[ derive(Debug) ]
 pub struct Schema {
     key: ValueType,
-    fields: Arc<SchemaInner>
+    fields: Arc<FieldTypeList>
 }
 
 impl Schema {
-    pub fn from_parts(key: ValueType, fields: SchemaInner) -> Self {
+    pub fn from_parts(key: ValueType, fields: FieldTypeList) -> Self {
         Self{ key, fields: Arc::new(fields) }
     }
 
@@ -59,7 +59,11 @@ impl Schema {
         self.key
     }
 
-    pub fn clone_inner(&self) -> (ValueType, SchemaInner) {
+    pub fn get_field_types(&self) -> &FieldTypeList {
+        &*self.fields
+    }
+
+    pub fn clone_inner(&self) -> (ValueType, FieldTypeList) {
         (self.key, (*self.fields).clone())
     }
 
@@ -170,7 +174,6 @@ impl Schema {
         Ok(result)
     }
 
-
     /// Same as get_fields but returns a vector instead
     pub fn get_fields_as_tuple(&self, entry: &DataEntry) -> Result<Tuple, SchemaError> {
         if entry.fields.len() != self.fields.len() {
@@ -203,7 +206,7 @@ impl Schema {
 
 pub struct SchemaBuilder {
     key: ValueType,
-    fields: SchemaInner
+    fields: FieldTypeList
 }
 
 impl SchemaBuilder {
@@ -230,13 +233,13 @@ impl SchemaBuilder {
 
 pub struct EntryBuilder {
     fields: HashMap<String, Vec<u8>>,
-    schema: Arc<SchemaInner>
+    schema: Arc<FieldTypeList>
 }
 
 impl EntryBuilder {
     pub fn set_field<T: Serialize>(mut self, name: String, value: &T) -> Self {
         //TODO typecheck here
-        
+
         let bytes = bincode::serialize(value).unwrap();
         self.fields.insert(name, bytes);
 
