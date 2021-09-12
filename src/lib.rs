@@ -197,7 +197,7 @@ impl Schema {
         Ok(result)
     }
 
-    pub fn build_entry<'a>(&'a self) -> EntryBuilder<'a> {
+    pub fn build_entry(&self) -> EntryBuilder<'_> {
         EntryBuilder{ fields: HashMap::new(), schema: &self.fields }
     }
 }
