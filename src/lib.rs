@@ -2,8 +2,6 @@ use serde::{Serialize, Deserialize};
 
 use std::collections::HashMap;
 
-use std::sync::Arc;
-
 mod value;
 pub use value::{Value, ValueType};
 
@@ -44,15 +42,15 @@ impl DataEntry {
 
 type FieldTypeList = Vec<(String, ValueType)>;
 
-#[ derive(Debug) ]
+#[ derive(Debug, Serialize, Deserialize) ]
 pub struct Schema {
     key: ValueType,
-    fields: Arc<FieldTypeList>
+    fields: FieldTypeList
 }
 
 impl Schema {
     pub fn from_parts(key: ValueType, fields: FieldTypeList) -> Self {
-        Self{ key, fields: Arc::new(fields) }
+        Self{ key, fields }
     }
 
     pub fn get_key_type(&self) -> ValueType {
@@ -60,11 +58,11 @@ impl Schema {
     }
 
     pub fn get_field_types(&self) -> &FieldTypeList {
-        &*self.fields
+        &self.fields
     }
 
     pub fn clone_inner(&self) -> (ValueType, FieldTypeList) {
-        (self.key, (*self.fields).clone())
+        (self.key, self.fields.clone())
     }
 
     pub fn set_field(&self, entry: &mut DataEntry, name: &str, value: &Value) -> Result<(), SchemaError> {
@@ -199,8 +197,8 @@ impl Schema {
         Ok(result)
     }
 
-    pub fn build_entry(&self) -> EntryBuilder {
-        EntryBuilder{ fields: HashMap::new(), schema: self.fields.clone() }
+    pub fn build_entry<'a>(&'a self) -> EntryBuilder<'a> {
+        EntryBuilder{ fields: HashMap::new(), schema: &self.fields }
     }
 }
 
@@ -215,7 +213,7 @@ impl SchemaBuilder {
     }
 
     pub fn build(self) -> Schema {
-        Schema{ key: self.key, fields: Arc::new(self.fields) }
+        Schema{ key: self.key, fields: self.fields }
     }
 
     pub fn add_field(mut self, name: String, vtype: ValueType) -> Self {
@@ -231,12 +229,12 @@ impl SchemaBuilder {
     }
 }
 
-pub struct EntryBuilder {
+pub struct EntryBuilder<'a>  {
     fields: HashMap<String, Vec<u8>>,
-    schema: Arc<FieldTypeList>
+    schema: &'a FieldTypeList
 }
 
-impl EntryBuilder {
+impl<'a> EntryBuilder<'a> {
     pub fn set_field<T: Serialize>(mut self, name: String, value: &T) -> Self {
         //TODO typecheck here
 
