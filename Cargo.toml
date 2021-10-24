@@ -2,7 +2,7 @@
 name = "schema"
 version = "0.1.0"
 authors = ["Kai Mast <kaimast@cs.cornell.edu>"]
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/kaimast/schema"
 description = "Helper classes to manage database schemas"
 license = "MIT"

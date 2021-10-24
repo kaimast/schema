@@ -216,16 +216,18 @@ impl SchemaBuilder {
         Schema{ key: self.key, fields: self.fields }
     }
 
-    pub fn add_field(mut self, name: String, vtype: ValueType) -> Self {
-       for (fname, _) in self.fields.iter() {
+    pub fn add_field<S: ToString>(mut self, name: S, vtype: ValueType) -> Self {
+        let name = name.to_string();
+
+        for (fname, _) in self.fields.iter() {
             if &name == fname {
                 panic!("Field defined more than once: {}", name);
             }
-       }
+        }
 
-       self.fields.push((name, vtype));
+        self.fields.push((name, vtype));
 
-       self
+        self
     }
 }
 
