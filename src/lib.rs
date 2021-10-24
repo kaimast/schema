@@ -5,6 +5,9 @@ use std::collections::HashMap;
 mod value;
 pub use value::{Value, ValueType};
 
+mod builders;
+pub use builders::{SchemaBuilder, EntryBuilder};
+
 #[ cfg(all(feature="json", feature="python-bindings")) ]
 pub use value::{python_to_json, python_to_json_value};
 
@@ -198,72 +201,7 @@ impl Schema {
     }
 
     pub fn build_entry(&self) -> EntryBuilder<'_> {
-        EntryBuilder{ fields: HashMap::new(), schema: &self.fields }
-    }
-}
-
-pub struct SchemaBuilder {
-    key: ValueType,
-    fields: FieldTypeList
-}
-
-impl SchemaBuilder {
-    pub fn new(key: ValueType) -> Self {
-        Self{ key, fields: Vec::new() }
-    }
-
-    pub fn build(self) -> Schema {
-        Schema{ key: self.key, fields: self.fields }
-    }
-
-    pub fn add_field<S: ToString>(mut self, name: S, vtype: ValueType) -> Self {
-        let name = name.to_string();
-
-        for (fname, _) in self.fields.iter() {
-            if &name == fname {
-                panic!("Field defined more than once: {}", name);
-            }
-        }
-
-        self.fields.push((name, vtype));
-
-        self
-    }
-}
-
-pub struct EntryBuilder<'a>  {
-    fields: HashMap<String, Vec<u8>>,
-    schema: &'a FieldTypeList
-}
-
-impl<'a> EntryBuilder<'a> {
-    pub fn set_field<T: Serialize>(mut self, name: String, value: &T) -> Self {
-        //TODO typecheck here
-
-        let bytes = bincode::serialize(value).unwrap();
-        self.fields.insert(name, bytes);
-
-        self
-    }
-
-    pub fn set_field_from_value(mut self, name: String, value: &Value) -> Self {
-        //TODO typecheck here
-
-        let bytes = value.serialize_inner();
-        self.fields.insert(name, bytes);
-
-        self
-    }
-
-    pub fn done(mut self) -> DataEntry {
-        let mut fields = Vec::new();
-
-        for (fname, _ftype) in self.schema.iter() {
-            let val = self.fields.remove(fname).expect("Field is missing");
-            fields.push(val);
-        }
-
-        DataEntry{ fields }
+        EntryBuilder::new(&self.fields)
     }
 }
 
@@ -280,14 +218,14 @@ mod test {
         test_init();
 
         let schema = SchemaBuilder::new(ValueType::Bool)
-            .add_field("value1".to_string(), ValueType::String)
-            .add_field("value2".to_string(), ValueType::I64)
+            .add_field("value1", ValueType::String)
+            .add_field("value2", ValueType::I64)
             .build();
 
         let mut entry = schema.build_entry()
-            .set_field::<String>("value1".to_string(), &("foobar".to_string()))
-            .set_field::<i64>("value2".to_string(), &42)
-            .done();
+            .set_field("value1", &"foobar")
+            .set_field("value2", &42i64)
+            .build();
 
         assert_eq!(schema.get_field(&entry, "value1").unwrap(), "foobar".into());
         assert_eq!(schema.get_field(&entry, "value2").unwrap(), 42.into());
