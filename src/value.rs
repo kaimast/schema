@@ -279,20 +279,20 @@ impl IntoPy<PyObject> for Value {
             }
             #[ cfg(feature="json") ]
             Value::Json(v) => {
-                json_into_python(py, *v)
+                json_to_python(py, *v)
             }
         }
     }
 }
 
 #[ cfg(all(feature="json", feature="python-bindings")) ]
-fn json_into_python(py: Python, json_value: serde_json::Value) -> PyObject {
+fn json_to_python(py: Python, json_value: serde_json::Value) -> PyObject {
     match json_value {
         serde_json::Value::Object(mut dict) => {
             let py_dict = PyDict::new(py);
 
             for (name, val) in dict.iter_mut() {
-                let py_val = json_into_python(py, val.take());
+                let py_val = json_to_python(py, val.take());
                 py_dict.set_item(name.into_py(py), py_val).unwrap();
             }
 
@@ -302,7 +302,7 @@ fn json_into_python(py: Python, json_value: serde_json::Value) -> PyObject {
             let mut items = Vec::new();
 
             for val in arr.drain(..) {
-                items.push(json_into_python(py, val));
+                items.push(json_to_python(py, val));
             }
 
             let py_arr = PyList::new(py, items);
@@ -328,13 +328,13 @@ fn json_into_python(py: Python, json_value: serde_json::Value) -> PyObject {
 }
 
 #[ cfg(all(feature="json", feature="python-bindings")) ]
-pub fn python_to_json_value(obj: &PyAny) -> PyResult<Value> {
-    let j = python_to_json(obj)?;
+pub fn python_to_json_value(py: Python, obj: &PyAny) -> PyResult<Value> {
+    let j = python_to_json(py, &obj)?;
     Ok(Value::Json(Box::new(j)))
 }
 
 #[ cfg(all(feature="json", feature="python-bindings")) ]
-pub fn python_to_json(obj: &PyAny) -> PyResult<serde_json::Value> {
+pub fn python_to_json(py: Python, obj: &PyAny) -> PyResult<serde_json::Value> {
     if obj.is_none() {
         Ok(serde_json::Value::Null)
     } else if let Ok(string) = PyAny::downcast::<PyString>(obj) {
@@ -344,8 +344,18 @@ pub fn python_to_json(obj: &PyAny) -> PyResult<serde_json::Value> {
         let f: f64 = pyfloat.extract()?;
         Ok(f.into())
     } else if let Ok(pyint) = PyAny::downcast::<PyLong>(obj) {
-        let i: i64 = pyint.extract()?;
-        Ok( i.into() )
+        // Pyint might not fit into signed integer so switch to u64 if needed
+        match pyint.extract::<i64>() {
+            Ok(i) => Ok( i.into() ),
+            Err(err) => {
+                if err.is_instance::<pyexceptions::PyOverflowError>(py) {
+                    let u: u64 = pyint.extract()?;
+                    Ok(u.into())
+                } else {
+                    Err(err)
+                }
+            }
+        }
     } else if let Ok(pyint) = PyAny::downcast::<PyInt>(obj) {
         let i: i64 = pyint.extract()?;
         Ok( i.into() )
@@ -353,7 +363,7 @@ pub fn python_to_json(obj: &PyAny) -> PyResult<serde_json::Value> {
         let mut result = Vec::new();
 
         for elem in pyarr.iter() {
-            result.push(python_to_json(elem)?);
+            result.push(python_to_json(py, elem)?);
         }
 
         Ok( result.into() )
@@ -362,7 +372,7 @@ pub fn python_to_json(obj: &PyAny) -> PyResult<serde_json::Value> {
 
         for (name, elem) in pydict.iter() {
             let key: String = name.extract()?;
-            result.insert(key, python_to_json(elem)?);
+            result.insert(key, python_to_json(py, elem)?);
         }
 
         Ok( result.into() )
@@ -373,8 +383,9 @@ pub fn python_to_json(obj: &PyAny) -> PyResult<serde_json::Value> {
 
 #[ cfg(test) ]
 mod tests {
-    use super::{Value, ValueType};
+    use super::{Value, ValueType, json_to_python, python_to_json};
     use serde_json::json;
+    use pyo3::Python;
 
     #[test]
     fn serialize_json() {
@@ -386,5 +397,18 @@ mod tests {
         let val2 = Value::from_bytes(&data, &ValueType::Json).unwrap();
 
         assert_eq!(val, val2);
+    }
+
+    #[test]
+    fn json_to_py() {
+        pyo3::prepare_freethreaded_python();
+
+        Python::with_gil(|py| {
+            let json_obj = json!({ "value1": u64::MAX, "value2": i64::MIN, "list": ["a", "b", "c"] });
+            let py_obj = json_to_python(py, json_obj.clone());
+            let json_obj2 = python_to_json(py, py_obj.into_ref(py)).unwrap();
+
+            assert_eq!(json_obj, json_obj2);
+        });
     }
 }
