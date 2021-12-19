@@ -329,7 +329,7 @@ fn json_to_python(py: Python, json_value: serde_json::Value) -> PyObject {
 
 #[ cfg(all(feature="json", feature="python-bindings")) ]
 pub fn python_to_json_value(py: Python, obj: &PyAny) -> PyResult<Value> {
-    let j = python_to_json(py, &obj)?;
+    let j = python_to_json(py, obj)?;
     Ok(Value::Json(Box::new(j)))
 }
 

@@ -14,10 +14,12 @@ impl SchemaBuilder {
         Self{ key, fields: Vec::new() }
     }
 
+    #[must_use]
     pub fn build(self) -> Schema {
         Schema{ key: self.key, fields: self.fields }
     }
 
+    #[must_use]
     pub fn add_field<S: ToString>(mut self, name: S, vtype: ValueType) -> Self {
         let name = name.to_string();
 
@@ -43,6 +45,7 @@ impl<'a> EntryBuilder<'a> {
         Self{ fields: HashMap::new(), schema }
     }
 
+    #[must_use]
     pub fn set_field<T: Serialize>(mut self, name: &'a str, value: &T) -> Self {
         //TODO typecheck here
 
@@ -52,6 +55,7 @@ impl<'a> EntryBuilder<'a> {
         self
     }
 
+    #[must_use]
     pub fn set_field_from_value(mut self, name: &'a str, value: &Value) -> Self {
         //TODO typecheck here
 
@@ -61,6 +65,7 @@ impl<'a> EntryBuilder<'a> {
         self
     }
 
+    #[must_use]
     pub fn build(mut self) -> DataEntry {
         let mut fields = Vec::new();
 
