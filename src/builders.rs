@@ -6,17 +6,23 @@ use serde::Serialize;
 
 pub struct SchemaBuilder {
     key: ValueType,
-    fields: FieldTypeList
+    fields: FieldTypeList,
 }
 
 impl SchemaBuilder {
     pub fn new(key: ValueType) -> Self {
-        Self{ key, fields: Vec::new() }
+        Self {
+            key,
+            fields: Vec::new(),
+        }
     }
 
     #[must_use]
     pub fn build(self) -> Schema {
-        Schema{ key: self.key, fields: self.fields }
+        Schema {
+            key: self.key,
+            fields: self.fields,
+        }
     }
 
     #[must_use]
@@ -35,14 +41,17 @@ impl SchemaBuilder {
     }
 }
 
-pub struct EntryBuilder<'a>  {
+pub struct EntryBuilder<'a> {
     fields: HashMap<&'a str, Vec<u8>>,
-    schema: &'a FieldTypeList
+    schema: &'a FieldTypeList,
 }
 
 impl<'a> EntryBuilder<'a> {
     pub(crate) fn new(schema: &'a FieldTypeList) -> Self {
-        Self{ fields: HashMap::new(), schema }
+        Self {
+            fields: HashMap::new(),
+            schema,
+        }
     }
 
     #[must_use]
@@ -70,11 +79,13 @@ impl<'a> EntryBuilder<'a> {
         let mut fields = Vec::new();
 
         for (fname, _ftype) in self.schema.iter() {
-            let val = self.fields.remove(fname.as_str()).expect("Field is missing");
+            let val = self
+                .fields
+                .remove(fname.as_str())
+                .expect("Field is missing");
             fields.push(val);
         }
 
-        DataEntry{ fields }
+        DataEntry { fields }
     }
 }
-
