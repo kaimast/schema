@@ -162,7 +162,7 @@ impl Schema {
             let ftype = {
                 let mut ftype = None;
                 let mut fpos = 0;
-                while ftype == None {
+                while ftype.is_none() {
                     let (n, t) = self.fields.get(fpos).unwrap();
 
                     if n == name {
