@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::convert::TryInto;
 
 use serde::{Deserialize, Serialize};
@@ -244,10 +245,10 @@ impl Value {
 #[cfg(feature = "python-bindings")]
 impl FromPyObject<'_> for ValueType {
     fn extract(obj: &PyAny) -> PyResult<Self> {
-        let typename: &str = if let Ok(pytype) = PyAny::downcast::<PyType>(obj) {
+        let typename: Cow<'_, str> = if let Ok(pytype) = PyAny::downcast::<PyType>(obj) {
             pytype.name().expect("Failed to get typename")
         } else if let Ok(string) = PyAny::downcast::<PyString>(obj) {
-            string.to_str().unwrap()
+            Cow::Borrowed(string.to_str().unwrap())
         } else {
             return Err(PyErr::new::<pyexceptions::PyTypeError, _>(
                 "Failed to convert PyObject to ValueType. Need string or python type.",
@@ -318,7 +319,7 @@ impl IntoPy<PyObject> for Value {
 fn json_to_python(py: Python, json_value: serde_json::Value) -> PyObject {
     match json_value {
         serde_json::Value::Object(mut dict) => {
-            let py_dict = PyDict::new(py);
+            let py_dict = PyDict::new_bound(py);
 
             for (name, val) in dict.iter_mut() {
                 let py_val = json_to_python(py, val.take());
@@ -334,7 +335,7 @@ fn json_to_python(py: Python, json_value: serde_json::Value) -> PyObject {
                 items.push(json_to_python(py, val));
             }
 
-            let py_arr = PyList::new(py, items);
+            let py_arr = PyList::new_bound(py, items);
             py_arr.into_py(py)
         }
         serde_json::Value::Null => py.None(),
@@ -432,7 +433,7 @@ mod tests {
             let json_obj =
                 json!({ "value1": u64::MAX, "value2": i64::MIN, "list": ["a", "b", "c"] });
             let py_obj = json_to_python(py, json_obj.clone());
-            let json_obj2 = python_to_json(py, py_obj.into_ref(py)).unwrap();
+            let json_obj2 = python_to_json(py, py_obj.into_bound(py).into_gil_ref()).unwrap();
 
             assert_eq!(json_obj, json_obj2);
         });

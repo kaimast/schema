@@ -13,13 +13,13 @@ keywords = ["storage", "database"]
 log = "0.4"
 bincode = "^1.3"
 serde = { version="1", features=["derive"] }
-pyo3 = { version="0.20", optional=true }
+pyo3 = { version="0.21", optional=true }
 serde_json = { version="1", optional=true }
 
 [dev-dependencies]
-env_logger = "0.10"
+env_logger = "0.11"
 
 [features]
 default = ["json", "python-bindings"]
-python-bindings = ["pyo3"]
-json = ["serde_json"]
+python-bindings = ["dep:pyo3"]
+json = ["dep:serde_json"]
