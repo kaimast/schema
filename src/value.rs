@@ -352,22 +352,22 @@ fn json_to_python(py: Python, json_value: serde_json::Value) -> PyObject {
 }
 
 #[cfg(all(feature = "json", feature = "python-bindings"))]
-pub fn python_to_json_value(py: Python, obj: &PyAny) -> PyResult<Value> {
+pub fn python_to_json_value(py: Python, obj: Bound<'_, PyAny>) -> PyResult<Value> {
     let j = python_to_json(py, obj)?;
     Ok(Value::Json(Box::new(j)))
 }
 
 #[cfg(all(feature = "json", feature = "python-bindings"))]
-pub fn python_to_json(py: Python, obj: &PyAny) -> PyResult<serde_json::Value> {
+pub fn python_to_json(py: Python, obj: Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     if obj.is_none() {
         Ok(serde_json::Value::Null)
-    } else if let Ok(string) = PyAny::downcast::<PyString>(obj) {
+    } else if let Ok(string) = Bound::downcast::<PyString>(&obj) {
         let rs_str: String = string.extract()?;
         Ok(rs_str.into())
-    } else if let Ok(pyfloat) = PyAny::downcast::<PyFloat>(obj) {
+    } else if let Ok(pyfloat) = Bound::downcast::<PyFloat>(&obj) {
         let f: f64 = pyfloat.extract()?;
         Ok(f.into())
-    } else if let Ok(pyint) = PyAny::downcast::<PyLong>(obj) {
+    } else if let Ok(pyint) = Bound::downcast::<PyLong>(&obj) {
         // Pyint might not fit into signed integer so switch to u64 if needed
         match pyint.extract::<i64>() {
             Ok(i) => Ok(i.into()),
@@ -380,10 +380,10 @@ pub fn python_to_json(py: Python, obj: &PyAny) -> PyResult<serde_json::Value> {
                 }
             }
         }
-    } else if let Ok(pyint) = PyAny::downcast::<PyInt>(obj) {
+    } else if let Ok(pyint) = Bound::downcast::<PyInt>(&obj) {
         let i: i64 = pyint.extract()?;
         Ok(i.into())
-    } else if let Ok(pyarr) = PyAny::downcast::<PyList>(obj) {
+    } else if let Ok(pyarr) = Bound::downcast::<PyList>(&obj) {
         let mut result = Vec::new();
 
         for elem in pyarr.iter() {
@@ -391,7 +391,7 @@ pub fn python_to_json(py: Python, obj: &PyAny) -> PyResult<serde_json::Value> {
         }
 
         Ok(result.into())
-    } else if let Ok(pydict) = PyAny::downcast::<PyDict>(obj) {
+    } else if let Ok(pydict) = Bound::downcast::<PyDict>(&obj) {
         let mut result = serde_json::Map::new();
 
         for (name, elem) in pydict.iter() {
@@ -433,7 +433,7 @@ mod tests {
             let json_obj =
                 json!({ "value1": u64::MAX, "value2": i64::MIN, "list": ["a", "b", "c"] });
             let py_obj = json_to_python(py, json_obj.clone());
-            let json_obj2 = python_to_json(py, py_obj.into_bound(py).into_gil_ref()).unwrap();
+            let json_obj2 = python_to_json(py, py_obj.into_bound(py)).unwrap();
 
             assert_eq!(json_obj, json_obj2);
         });

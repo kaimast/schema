@@ -25,3 +25,5 @@ jobs:
       run: cargo clippy -- -D warnings
     - name: Basic tests
       run: env RUST_LOG=debug cargo test
+    - name: Python tests
+      run: env RUST_LOG=debug cargo test --features=python-bindings,json
